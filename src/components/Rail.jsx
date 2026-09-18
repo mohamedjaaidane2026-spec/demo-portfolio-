@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import TitleCard from './TitleCard'
-import { IconChevron } from '../lib/icons'
 
-export default function Rail({ title, caption, items, ranked = false, showProgress = false }) {
+export default function Rail({ title, items, ranked = false }) {
   const trackRef = useRef(null)
   const [edge, setEdge] = useState({ start: true, end: false })
 
@@ -25,52 +24,47 @@ export default function Rail({ title, caption, items, ranked = false, showProgre
       el.removeEventListener('scroll', measure)
       window.removeEventListener('resize', measure)
     }
-  }, [measure])
+  }, [measure, items])
 
   const nudge = (dir) => {
     const el = trackRef.current
     if (!el) return
-    el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 320), behavior: 'smooth' })
+    el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.85, 300), behavior: 'smooth' })
   }
 
-  if (!items.length) return null
+  if (!items?.length) return null
 
   return (
-    <section className="py-7">
-      <div className="shell flex items-end justify-between gap-6">
-        <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-[26px]">{title}</h2>
-          {caption && <p className="mt-1 text-sm text-mist-500">{caption}</p>}
-        </div>
-        <div className="hidden shrink-0 gap-2 sm:flex">
-          {[-1, 1].map((dir) => (
-            <button
-              key={dir}
-              type="button"
-              onClick={() => nudge(dir)}
-              disabled={dir === -1 ? edge.start : edge.end}
-              aria-label={dir === -1 ? `Scroll ${title} back` : `Scroll ${title} forward`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-mist-300 transition-colors duration-200 hover:border-teal-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/[0.12] disabled:hover:text-mist-300"
-            >
-              <span className={dir === -1 ? 'rotate-180' : ''}>
-                <IconChevron size={16} />
-              </span>
-            </button>
-          ))}
+    <section className="mt-7">
+      <div className="mb-2 flex items-center gap-3">
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.1em]">{title}</h2>
+        <span className="nums text-2xs text-fg-mute">{items.length}</span>
+        <div className="ml-auto flex gap-1">
+          <button
+            type="button"
+            onClick={() => nudge(-1)}
+            disabled={edge.start}
+            aria-label={`Scroll ${title} back`}
+            className="btn-icon disabled:opacity-25"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => nudge(1)}
+            disabled={edge.end}
+            aria-label={`Scroll ${title} forward`}
+            className="btn-icon disabled:opacity-25"
+          >
+            ›
+          </button>
         </div>
       </div>
 
-      <div className="relative mt-5">
-        <div ref={trackRef} className={`rail-scroll shell ${edge.end ? '' : 'sm:mask-fade-r'}`}>
-          {items.map((item, i) => (
-            <TitleCard
-              key={`${title}-${item.id}`}
-              item={item}
-              index={ranked ? i : undefined}
-              showProgress={showProgress}
-            />
-          ))}
-        </div>
+      <div ref={trackRef} className="track">
+        {items.map((item, i) => (
+          <TitleCard key={item.id} item={item} index={ranked ? i : undefined} />
+        ))}
       </div>
     </section>
   )

@@ -1,94 +1,85 @@
 import { Link } from 'react-router-dom'
-import Artwork from '../lib/Artwork'
-import { IconCheck, IconPlay, IconPlus, IconStar } from '../lib/icons'
+import Poster from './Poster'
 import { useStore } from '../lib/store'
 
-export function Meta({ item, className = '' }) {
+export function Rating({ value, className = '' }) {
+  if (typeof value !== 'number') return null
+  return <span className={`nums font-medium ${className}`}>{value.toFixed(1)}</span>
+}
+
+export function MetaLine({ item, className = '' }) {
+  const bits = [
+    item.year,
+    item.type === 'series'
+      ? item.seasons
+        ? `${item.seasons} season${item.seasons > 1 ? 's' : ''}`
+        : 'Series'
+      : item.runtime
+        ? `${item.runtime} min`
+        : 'Film',
+    item.certificate,
+  ].filter(Boolean)
+
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mist-400 ${className}`}>
-      <span className="inline-flex items-center gap-1 font-semibold text-amber-300">
-        <IconStar size={12} />
-        {item.rating.toFixed(1)}
-      </span>
-      <span>{item.year}</span>
-      <span className="rounded border border-white/15 px-1.5 py-px text-[10px] font-semibold tracking-wide">
-        {item.certificate}
-      </span>
-      <span>
-        {item.type === 'series'
-          ? `${item.seasons} season${item.seasons > 1 ? 's' : ''}`
-          : `${item.runtime} min`}
-      </span>
-    </div>
+    <span className={`nums text-2xs text-fg-mute ${className}`}>{bits.join('  ·  ')}</span>
   )
 }
 
-export default function TitleCard({ item, index, showProgress = false }) {
+export default function TitleCard({ item, index, width = 'w-[132px] sm:w-[146px]' }) {
   const { inWatchlist, toggleWatchlist, progress } = useStore()
   const saved = inWatchlist(item.id)
   const p = progress[item.id]
 
   return (
-    <article className="group relative w-[190px] shrink-0 snap-start sm:w-[210px]">
-      <Link
-        to={`/title/${item.id}`}
-        className="block overflow-hidden rounded-xl border border-white/[0.08] bg-ink-850 shadow-lift transition-colors duration-300 group-hover:border-teal-400/45"
-      >
-        <div className="relative aspect-[2/3]">
-          <Artwork item={item} className="h-full w-full" />
-
-          <div className="absolute inset-x-0 bottom-0 p-3">
-            <p className="font-display text-[17px] font-semibold leading-tight text-balance text-white drop-shadow">
-              {item.title}
-            </p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-mist-400">
-              {item.type === 'series' ? 'Series' : 'Film'} · {item.genres[0]}
-            </p>
-          </div>
-
-          <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-ink-950/80 px-2 py-0.5 text-[11px] font-semibold text-amber-300 backdrop-blur">
-            <IconStar size={11} />
-            {item.rating.toFixed(1)}
-          </div>
+    <article className={`group relative shrink-0 ${width}`}>
+      <Link to={`/title/${item.id}`} className="block">
+        <div className="relative aspect-[2/3] overflow-hidden border border-white/[0.07] bg-base-800">
+          <Poster item={item} sizes="146px" />
 
           {typeof index === 'number' && (
-            <span className="absolute right-2 top-2 font-display text-2xl font-bold text-white/25">
-              {String(index + 1).padStart(2, '0')}
+            <span className="nums absolute left-0 top-0 bg-base-900/85 px-1.5 py-0.5 text-2xs font-semibold text-fg-dim">
+              {index + 1}
             </span>
           )}
 
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ink-950/55 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-teal-400 text-ink-950">
-              <IconPlay size={18} />
+          {typeof item.rating === 'number' && item.rating > 0 && (
+            <span className="nums absolute bottom-0 right-0 bg-base-900/85 px-1.5 py-0.5 text-2xs font-medium">
+              {item.rating.toFixed(1)}
             </span>
-          </div>
-        </div>
+          )}
 
-        {showProgress && p && (
-          <div className="px-3 pb-3 pt-2">
-            <div className="h-1 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-teal-400"
+          <span className="absolute inset-0 border border-transparent transition-colors duration-150 group-hover:border-fg/50" />
+
+          {p && p.value > 0 && p.value < 1 && (
+            <span className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15">
+              <span
+                className="block h-full bg-accent"
                 style={{ width: `${Math.round(p.value * 100)}%` }}
               />
-            </div>
-            <p className="mt-1.5 truncate text-[11px] text-mist-500">{p.label}</p>
-          </div>
-        )}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-1.5">
+          <h3 className="truncate text-[13px] leading-tight text-fg-dim group-hover:text-fg">
+            {item.title}
+          </h3>
+          <MetaLine item={item} className="mt-0.5 block" />
+        </div>
       </Link>
 
       <button
         type="button"
         onClick={() => toggleWatchlist(item.id)}
-        aria-label={saved ? `Remove ${item.title} from My list` : `Add ${item.title} to My list`}
+        aria-label={saved ? `Remove ${item.title} from list` : `Add ${item.title} to list`}
         aria-pressed={saved}
-        className={`absolute right-2 top-11 inline-flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition-colors duration-200 ${
+        className={`absolute right-0 top-0 h-6 w-6 text-sm leading-none transition-opacity duration-150 ${
           saved
-            ? 'border-teal-400/60 bg-teal-400/20 text-teal-300'
-            : 'border-white/15 bg-ink-950/70 text-mist-300 opacity-0 hover:border-white/35 hover:text-white group-hover:opacity-100 focus-visible:opacity-100'
+            ? 'bg-accent text-white'
+            : 'bg-base-900/85 text-fg-dim opacity-0 hover:text-fg group-hover:opacity-100 focus-visible:opacity-100'
         }`}
       >
-        {saved ? <IconCheck size={15} /> : <IconPlus size={15} />}
+        {saved ? '✓' : '+'}
       </button>
     </article>
   )

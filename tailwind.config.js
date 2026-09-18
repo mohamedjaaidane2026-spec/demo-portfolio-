@@ -4,58 +4,48 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: {
-          950: '#080b14',
-          900: '#0c101c',
-          850: '#111726',
-          800: '#161d30',
-          700: '#1f2941',
-          600: '#2b3755',
-          500: '#3d4b6e',
+        // Near-monochrome neutrals; one accent, used sparingly.
+        base: {
+          900: '#0a0a0b',
+          850: '#101012',
+          800: '#16161a',
+          750: '#1d1d22',
+          700: '#26262c',
+          600: '#34343c',
         },
-        mist: {
-          100: '#eef2fb',
-          300: '#c3ccE3',
-          400: '#9aa6c4',
-          500: '#7b88a8',
+        fg: {
+          DEFAULT: '#e9e9ec',
+          dim: '#a0a0a9',
+          mute: '#6f6f79',
         },
-        teal: {
-          300: '#6fe3d2',
-          400: '#38cfba',
-          500: '#17b6a0',
-          600: '#0f9384',
-        },
-        amber: {
-          300: '#f7d07a',
-          400: '#efb544',
+        accent: {
+          DEFAULT: '#d83a45',
+          hover: '#e45560',
+          dim: '#7c2128',
         },
       },
       fontFamily: {
-        sans: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        sans: [
+          'Inter',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
-      boxShadow: {
-        lift: '0 18px 48px -16px rgba(4, 8, 18, 0.85)',
-        glow: '0 0 0 1px rgba(56, 207, 186, 0.35), 0 12px 40px -12px rgba(23, 182, 160, 0.45)',
+      fontSize: {
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
       },
-      keyframes: {
-        'fade-up': {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        'fade-in': {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        pulseSoft: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.45' },
-        },
+      borderRadius: {
+        DEFAULT: '0.25rem',
+        md: '0.3125rem',
+        lg: '0.375rem',
       },
-      animation: {
-        'fade-up': 'fade-up 0.5s ease-out both',
-        'fade-in': 'fade-in 0.4s ease-out both',
-        'pulse-soft': 'pulseSoft 2.4s ease-in-out infinite',
+      maxWidth: {
+        shell: '1560px',
       },
     },
   },
