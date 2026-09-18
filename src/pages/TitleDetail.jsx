@@ -1,174 +1,225 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import Poster from '../components/Poster'
 import Rail from '../components/Rail'
-import { Meta } from '../components/TitleCard'
-import Artwork from '../lib/Artwork'
-import { CATALOG, getTitle } from '../data/catalog'
-import { IconCheck, IconPlay, IconPlus, IconUsers } from '../lib/icons'
+import { Rating } from '../components/TitleCard'
+import { useTitle } from '../lib/catalog'
+import { fetchSeasonEpisodes, isConfigured } from '../lib/tmdb'
 import { useStore } from '../lib/store'
 
-function NotFound() {
+function Episodes({ id, seasons }) {
+  const [season, setSeason] = useState(seasons?.[0]?.number ?? 1)
+  const [episodes, setEpisodes] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!isConfigured() || !seasons?.length) return undefined
+    let cancelled = false
+    setLoading(true)
+    fetchSeasonEpisodes(id, season)
+      .then((eps) => !cancelled && setEpisodes(eps))
+      .catch(() => !cancelled && setEpisodes([]))
+      .finally(() => !cancelled && setLoading(false))
+    return () => {
+      cancelled = true
+    }
+  }, [id, season, seasons])
+
+  if (!seasons?.length) return null
+
   return (
-    <div className="shell py-24 text-center">
-      <h1 className="font-display text-3xl font-bold">We couldn’t find that title</h1>
-      <p className="mt-3 text-mist-400">It may have left the catalog.</p>
-      <Link to="/browse" className="btn-primary mt-7">
-        Back to browse
-      </Link>
-    </div>
+    <section className="mt-8">
+      <div className="mb-2 flex items-center gap-3">
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.1em]">Episodes</h2>
+        <select
+          value={season}
+          onChange={(e) => setSeason(Number(e.target.value))}
+          className="border border-white/10 bg-base-850 px-1.5 py-1 text-xs"
+        >
+          {seasons.map((s) => (
+            <option key={s.number} value={s.number}>
+              {s.name || `Season ${s.number}`}
+              {s.episodes ? ` (${s.episodes})` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <p className="text-2xs text-fg-mute">Loading episodes…</p>
+      ) : episodes.length === 0 ? (
+        <p className="text-2xs text-fg-mute">No episode data.</p>
+      ) : (
+        <ul className="card divide-y-hair">
+          {episodes.map((ep) => (
+            <li key={ep.number} className="flex gap-3 p-2.5">
+              <span className="nums w-6 shrink-0 text-xs text-fg-mute">{ep.number}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-[13px]">{ep.title}</span>
+                  {ep.runtime && <span className="nums text-2xs text-fg-mute">{ep.runtime}m</span>}
+                </span>
+                {ep.synopsis && (
+                  <span className="mt-0.5 line-clamp-2 block text-2xs leading-relaxed text-fg-mute">
+                    {ep.synopsis}
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
 export default function TitleDetail() {
   const { id } = useParams()
-  const item = getTitle(id)
+  const { item, related, loading, error } = useTitle(id)
   const { inWatchlist, toggleWatchlist, progress } = useStore()
 
-  if (!item) return <NotFound />
+  if (loading) {
+    return (
+      <div className="shell py-6">
+        <div className="flex gap-5">
+          <div className="h-[300px] w-[200px] shrink-0 bg-base-800" />
+          <div className="flex-1 space-y-3">
+            <div className="h-6 w-1/2 bg-base-800" />
+            <div className="h-3 w-1/3 bg-base-800" />
+            <div className="h-16 w-full bg-base-800" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!item) {
+    return (
+      <div className="shell py-16 text-center">
+        <p className="text-sm">Title not found{error ? `: ${error}` : ''}.</p>
+        <Link to="/browse" className="btn-ghost mt-4">
+          Back to browse
+        </Link>
+      </div>
+    )
+  }
 
   const saved = inWatchlist(item.id)
   const p = progress[item.id]
-  const related = CATALOG.filter(
-    (t) => t.id !== item.id && t.genres.some((g) => item.genres.includes(g))
-  ).slice(0, 8)
-
-  const episodes =
-    item.type === 'series'
-      ? Array.from({ length: 6 }, (_, i) => ({
-          n: i + 1,
-          title: ['The Audit', 'Paper Trail', 'Six Weeks Prior', 'Quorum', 'The Long Room', 'Reconciliation'][i],
-          runtime: item.runtime - 4 + ((i * 3) % 9),
-        }))
-      : []
 
   return (
     <>
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0">
-          <Artwork item={item} variant="wide" className="h-full w-full" />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/80 to-ink-950/40" />
-        </div>
+      <div className="relative border-b border-white/[0.07]">
+        {item.backdrop && (
+          <div className="absolute inset-0">
+            <img src={item.backdrop} alt="" className="h-full w-full object-cover object-top opacity-25" />
+            <div className="absolute inset-0 bg-gradient-to-t from-base-900 via-base-900/85 to-base-900/50" />
+          </div>
+        )}
 
-        <div className="shell relative grid gap-10 pb-12 pt-16 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <div className="hidden self-start overflow-hidden rounded-2xl border border-white/10 shadow-lift lg:block">
+        <div className="shell relative flex flex-col gap-5 py-6 sm:flex-row">
+          <div className="w-[140px] shrink-0 self-start border border-white/10 sm:w-[200px]">
             <div className="aspect-[2/3]">
-              <Artwork item={item} className="h-full w-full" />
+              <Poster item={item} src={item.posterLarge || item.poster} sizes="200px" />
             </div>
           </div>
 
-          <div className="max-w-2xl animate-fade-up">
-            <p className="eyebrow">
-              {item.type === 'series' ? 'Series' : 'Film'} · {item.genres.join(' / ')}
+          <div className="min-w-0 flex-1">
+            <p className="label">
+              {item.type === 'series' ? 'Series' : 'Film'}
+              {item.genres?.length ? ` · ${item.genres.join(', ')}` : ''}
             </p>
-            <h1 className="mt-3 font-display text-4xl font-bold leading-[1.05] tracking-tight text-balance sm:text-5xl">
+
+            <h1 className="mt-1.5 text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
               {item.title}
             </h1>
-            <p className="mt-3 font-display text-lg italic text-teal-300/90">{item.tagline}</p>
-            <Meta item={item} className="mt-5 text-sm" />
 
-            <p className="mt-6 text-[15px] leading-relaxed text-mist-300">{item.synopsis}</p>
+            {item.tagline && (
+              <p className="mt-1 text-[13px] text-fg-mute">{item.tagline}</p>
+            )}
 
-            {item.badges.length > 0 && (
-              <div className="mt-5 flex flex-wrap gap-2">
-                {item.badges.map((b) => (
-                  <span key={b} className="chip text-teal-300">
-                    {b}
-                  </span>
-                ))}
-              </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-dim">
+              {typeof item.rating === 'number' && item.rating > 0 && (
+                <span className="flex items-baseline gap-1">
+                  <Rating value={item.rating} className="text-fg" />
+                  <span className="text-fg-mute">/10</span>
+                  {item.votes ? (
+                    <span className="nums text-fg-mute">({item.votes.toLocaleString()})</span>
+                  ) : null}
+                </span>
+              )}
+              {item.year && <span className="nums">{item.year}</span>}
+              {item.certificate && <span className="tag">{item.certificate}</span>}
+              {item.type === 'series'
+                ? item.seasons && (
+                    <span className="nums">
+                      {item.seasons} season{item.seasons > 1 ? 's' : ''}
+                    </span>
+                  )
+                : item.runtime && <span className="nums">{item.runtime} min</span>}
+            </div>
+
+            {item.synopsis && (
+              <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-fg-dim">
+                {item.synopsis}
+              </p>
             )}
 
             {p && p.value > 0 && p.value < 1 && (
-              <div className="mt-7 max-w-md">
-                <div className="h-1 overflow-hidden rounded-full bg-white/10">
+              <div className="mt-3 max-w-xs">
+                <div className="h-[3px] bg-white/10">
                   <div
-                    className="h-full rounded-full bg-teal-400"
+                    className="h-full bg-accent"
                     style={{ width: `${Math.round(p.value * 100)}%` }}
                   />
                 </div>
-                <p className="mt-2 text-xs text-mist-500">
-                  {p.label} · {Math.round(p.value * 100)}% watched
+                <p className="nums mt-1 text-2xs text-fg-mute">
+                  {p.label} · {Math.round(p.value * 100)}%
                 </p>
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link to={`/watch/${item.id}`} className="btn-primary px-6 py-3">
-                <IconPlay size={16} />
-                {p && p.value > 0 ? 'Resume' : 'Play now'}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Link to={`/watch/${item.id}`} className="btn-accent">
+                ▶ {p && p.value > 0 ? 'Resume' : 'Play'}
               </Link>
-              <Link to={`/rooms?title=${item.id}`} className="btn-ghost px-6 py-3">
-                <IconUsers size={16} />
+              <Link to={`/rooms?title=${item.id}`} className="btn-ghost">
                 Start a room
               </Link>
               <button
                 type="button"
                 onClick={() => toggleWatchlist(item.id)}
                 aria-pressed={saved}
-                className={`btn border px-5 py-3 ${
-                  saved
-                    ? 'border-teal-400/60 bg-teal-400/15 text-teal-300'
-                    : 'border-white/[0.12] bg-white/[0.04] text-mist-300 hover:border-white/30 hover:text-white'
-                }`}
+                className="btn-ghost"
               >
-                {saved ? <IconCheck size={16} /> : <IconPlus size={16} />}
-                {saved ? 'On your list' : 'Add to list'}
+                {saved ? '✓ On list' : '+ My list'}
               </button>
             </div>
 
-            <dl className="mt-10 grid gap-x-10 gap-y-4 border-t border-white/[0.07] pt-7 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-xs uppercase tracking-[0.18em] text-mist-500">Directed by</dt>
-                <dd className="mt-1 font-medium text-mist-100">{item.director}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-[0.18em] text-mist-500">Starring</dt>
-                <dd className="mt-1 font-medium text-mist-100">{item.cast.join(', ')}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-[0.18em] text-mist-500">Member score</dt>
-                <dd className="mt-1 font-medium text-amber-300">{item.rating.toFixed(1)} / 10</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-[0.18em] text-mist-500">
-                  {item.type === 'series' ? 'Episode length' : 'Runtime'}
-                </dt>
-                <dd className="mt-1 font-medium text-mist-100">{item.runtime} min</dd>
-              </div>
-            </dl>
+            {Boolean(item.director || item.cast?.length) && (
+              <dl className="mt-5 grid gap-x-8 gap-y-2 border-t border-white/[0.06] pt-4 text-xs sm:grid-cols-2">
+                {item.director && (
+                  <div>
+                    <dt className="label">{item.type === 'series' ? 'Created by' : 'Director'}</dt>
+                    <dd className="mt-0.5 text-fg-dim">{item.director}</dd>
+                  </div>
+                )}
+                {item.cast?.length > 0 && (
+                  <div>
+                    <dt className="label">Cast</dt>
+                    <dd className="mt-0.5 text-fg-dim">{item.cast.join(', ')}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
           </div>
         </div>
-      </section>
+      </div>
 
-      {episodes.length > 0 && (
-        <section className="shell py-10">
-          <h2 className="font-display text-2xl font-semibold tracking-tight">
-            Season {item.seasons} · Episodes
-          </h2>
-          <ul className="panel mt-5 divide-y divide-white/[0.05]">
-            {episodes.map((ep) => (
-              <li key={ep.n}>
-                <Link
-                  to={`/watch/${item.id}`}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors duration-200 hover:bg-white/[0.03]"
-                >
-                  <span className="w-7 shrink-0 font-display text-xl font-bold text-mist-500">
-                    {ep.n}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-mist-100">{ep.title}</span>
-                    <span className="block text-xs text-mist-500">{ep.runtime} min</span>
-                  </span>
-                  <span className="shrink-0 text-teal-300">
-                    <IconPlay size={16} />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <Rail title="Because you opened this" caption="Sharing a genre or two" items={related} />
+      <div className="shell pb-10">
+        {item.type === 'series' && <Episodes id={item.id} seasons={item.seasonList} />}
+        <Rail title="Related" items={related} />
+      </div>
     </>
   )
 }

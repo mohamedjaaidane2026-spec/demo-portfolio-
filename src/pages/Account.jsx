@@ -1,74 +1,78 @@
+import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import Poster from '../components/Poster'
 import TitleCard from '../components/TitleCard'
-import Artwork from '../lib/Artwork'
-import { ROOMS, getTitle } from '../data/catalog'
-import { IconArrow, IconPlay, IconUsers } from '../lib/icons'
+import { useCatalog, useTitle } from '../lib/catalog'
 import { useStore } from '../lib/store'
+
+/** Builds a flat id -> item map from every loaded row. */
+function usePool() {
+  const { rows } = useCatalog()
+  return useMemo(() => {
+    const map = new Map()
+    rows.forEach((row) => row.items.forEach((i) => !map.has(i.id) && map.set(i.id, i)))
+    return map
+  }, [rows])
+}
 
 export function Library() {
   const { watchlist, progress } = useStore()
-  const saved = watchlist.map(getTitle).filter(Boolean)
+  const pool = usePool()
+
+  const saved = watchlist.map((id) => pool.get(id)).filter(Boolean)
   const history = Object.entries(progress)
-    .map(([id, p]) => ({ item: getTitle(id), p }))
+    .map(([id, p]) => ({ item: pool.get(id), p }))
     .filter((e) => e.item)
 
   return (
-    <div className="shell py-12">
-      <header className="max-w-2xl">
-        <p className="eyebrow">Your account</p>
-        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">My list</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-mist-400">
-          Saved titles and watch history live in this browser. Nothing leaves your device.
-        </p>
-      </header>
+    <div className="shell py-6">
+      <h1 className="text-[13px] font-semibold uppercase tracking-[0.1em]">My list</h1>
+      <p className="mt-1 text-2xs text-fg-mute">Saved locally in this browser.</p>
 
-      <section className="mt-10">
-        <h2 className="font-display text-2xl font-semibold tracking-tight">
-          Saved {saved.length > 0 && <span className="text-mist-500">({saved.length})</span>}
-        </h2>
+      <section className="mt-5">
+        <div className="mb-2 flex items-center gap-2">
+          <h2 className="text-xs font-medium text-fg-dim">Saved</h2>
+          <span className="nums text-2xs text-fg-mute">{saved.length}</span>
+        </div>
+
         {saved.length === 0 ? (
-          <div className="panel mt-5 flex flex-col items-start gap-4 p-8">
-            <p className="max-w-md text-sm leading-relaxed text-mist-400">
-              Your list is empty. Tap the <span className="font-semibold text-mist-100">+</span> on
-              any cover to save it for later.
+          <div className="card flex flex-wrap items-center gap-3 p-4">
+            <p className="text-xs text-fg-mute">
+              Nothing saved yet. Use the <span className="text-fg-dim">+</span> on any poster.
             </p>
-            <Link to="/browse" className="btn-primary">
-              Browse the catalog
-              <IconArrow size={15} />
+            <Link to="/browse" className="btn-ghost ml-auto">
+              Browse
             </Link>
           </div>
         ) : (
-          <div className="mt-5 flex flex-wrap gap-5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-2">
             {saved.map((item) => (
-              <TitleCard key={item.id} item={item} />
+              <TitleCard key={item.id} item={item} width="w-full" />
             ))}
           </div>
         )}
       </section>
 
       {history.length > 0 && (
-        <section className="mt-14">
-          <h2 className="font-display text-2xl font-semibold tracking-tight">Watch history</h2>
-          <ul className="panel mt-5 divide-y divide-white/[0.05]">
+        <section className="mt-8">
+          <h2 className="mb-2 text-xs font-medium text-fg-dim">History</h2>
+          <ul className="card divide-y-hair">
             {history.map(({ item, p }) => (
               <li key={item.id}>
-                <Link
-                  to={`/watch/${item.id}`}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors duration-200 hover:bg-white/[0.03]"
-                >
-                  <span className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-white/10">
-                    <Artwork item={item} className="h-full w-full" />
+                <Link to={`/watch/${item.id}`} className="flex items-center gap-3 p-2 hover:bg-white/[0.03]">
+                  <span className="h-12 w-8 shrink-0 overflow-hidden border border-white/10">
+                    <Poster item={item} sizes="32px" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-mist-100">{item.title}</span>
-                    <span className="mt-2 block h-1 max-w-xs overflow-hidden rounded-full bg-white/10">
+                    <span className="block truncate text-[13px] text-fg-dim">{item.title}</span>
+                    <span className="mt-1.5 block h-[3px] max-w-[220px] bg-white/10">
                       <span
-                        className="block h-full rounded-full bg-teal-400"
+                        className="block h-full bg-accent"
                         style={{ width: `${Math.round(p.value * 100)}%` }}
                       />
                     </span>
                   </span>
-                  <span className="shrink-0 text-xs text-mist-500">
+                  <span className="nums shrink-0 text-2xs text-fg-mute">
                     {Math.round(p.value * 100)}%
                   </span>
                 </Link>
@@ -83,103 +87,107 @@ export function Library() {
 
 export function Rooms() {
   const [params] = useSearchParams()
-  const preset = getTitle(params.get('title') || '')
+  const presetId = params.get('title') || ''
+  const { item: preset } = useTitle(presetId)
+  const pool = usePool()
+
+  // Fabricate a plausible "running now" list from whatever catalog is loaded.
+  const live = useMemo(() => {
+    const items = [...pool.values()].slice(0, 4)
+    const hosts = ['Nadia', 'Owen', 'Priya', 'Marek']
+    const notes = ['starting in 5 min', 'live · 23 min in', 'live · 8 min in', 'lobby open']
+    return items.map((item, i) => ({
+      item,
+      host: hosts[i % hosts.length],
+      note: notes[i % notes.length],
+      members: [4, 7, 2, 11][i % 4],
+    }))
+  }, [pool])
 
   return (
-    <div className="shell py-12">
-      <header className="max-w-2xl">
-        <p className="eyebrow">Watch together</p>
-        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Rooms</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-mist-400">
-          A room keeps everyone’s playhead aligned and puts chat beside the picture. Host one, or
-          drop into whatever is already running.
-        </p>
-      </header>
+    <div className="shell py-6">
+      <h1 className="text-[13px] font-semibold uppercase tracking-[0.1em]">Rooms</h1>
+      <p className="mt-1 max-w-lg text-2xs text-fg-mute">
+        A room keeps every playhead aligned and puts chat beside the picture.
+      </p>
 
-      <section className="panel mt-10 grid items-start gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight">Host a room</h2>
-          <p className="mt-2 text-sm text-mist-400">
+      <section className="card mt-5 flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
+        {presetId && preset && (
+          <div className="w-[110px] shrink-0 border border-white/10">
+            <div className="aspect-[2/3]">
+              <Poster item={preset} sizes="110px" />
+            </div>
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xs font-medium text-fg-dim">Host a room</h2>
+          <p className="mt-1 text-2xs text-fg-mute">
             {preset ? (
               <>
-                Starting with <span className="font-semibold text-mist-100">{preset.title}</span>.
+                Starting with <span className="text-fg-dim">{preset.title}</span>
               </>
             ) : (
-              'Pick a title, set who can control playback, and share the link.'
+              'Pick a title, then share the join link.'
             )}
           </p>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
             {[
-              { k: 'Who can pause', v: 'Host only' },
-              { k: 'Room size', v: 'Up to 12' },
-              { k: 'Chat', v: 'On, timestamped' },
-              { k: 'Join link', v: 'Expires in 4 h' },
-            ].map((row) => (
-              <div key={row.k} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-mist-500">{row.k}</p>
-                <p className="mt-1.5 font-semibold text-mist-100">{row.v}</p>
+              ['Pause', 'Host only'],
+              ['Size', 'Up to 12'],
+              ['Chat', 'Timestamped'],
+              ['Link', 'Expires 4h'],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <p className="label">{k}</p>
+                <p className="mt-0.5 text-xs text-fg-dim">{v}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              to={preset ? `/watch/${preset.id}` : '/watch/the-quiet-orbit'}
-              className="btn-primary px-6 py-3"
+              to={preset ? `/watch/${preset.id}` : live[0] ? `/watch/${live[0].item.id}` : '/browse'}
+              className="btn-accent"
             >
-              <IconPlay size={16} />
-              Open the room
+              ▶ Open room
             </Link>
-            <Link to="/browse" className="btn-ghost px-6 py-3">
-              Choose a different title
+            <Link to="/browse" className="btn-ghost">
+              Choose title
             </Link>
           </div>
         </div>
-
-        {preset && (
-          <div className="overflow-hidden rounded-2xl border border-white/10 shadow-lift">
-            <div className="aspect-[2/3]">
-              <Artwork item={preset} className="h-full w-full" />
-            </div>
-          </div>
-        )}
       </section>
 
-      <section className="mt-14">
-        <h2 className="font-display text-2xl font-semibold tracking-tight">Running now</h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {ROOMS.map((room) => {
-            const item = getTitle(room.titleId)
-            return (
-              <Link
-                key={room.id}
-                to={`/watch/${room.titleId}`}
-                className="group panel flex gap-4 p-4 transition-colors duration-300 hover:border-teal-400/45"
-              >
-                <span className="h-24 w-16 shrink-0 overflow-hidden rounded-lg border border-white/10">
-                  <Artwork item={item} className="h-full w-full" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col justify-center">
-                  <span className="truncate font-display text-lg font-semibold text-mist-100">
-                    {item.title}
+      {live.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-2 text-xs font-medium text-fg-dim">Running now</h2>
+          <ul className="card divide-y-hair">
+            {live.map((room) => (
+              <li key={room.item.id}>
+                <Link
+                  to={`/watch/${room.item.id}`}
+                  className="flex items-center gap-3 p-2 hover:bg-white/[0.03]"
+                >
+                  <span className="h-12 w-8 shrink-0 overflow-hidden border border-white/10">
+                    <Poster item={room.item} sizes="32px" />
                   </span>
-                  <span className="mt-0.5 truncate text-xs text-mist-500">
-                    Hosted by {room.host}
-                  </span>
-                  <span className="mt-2 flex items-center gap-3 text-xs text-mist-400">
-                    <span className="chip">
-                      <IconUsers size={12} />
-                      {room.members}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] text-fg-dim">
+                      {room.item.title}
                     </span>
-                    <span className="truncate text-teal-300">{room.note}</span>
+                    <span className="block truncate text-2xs text-fg-mute">
+                      {room.host} · {room.note}
+                    </span>
                   </span>
-                </span>
-              </Link>
-            )
-          })}
-        </div>
-      </section>
+                  <span className="nums shrink-0 text-2xs text-fg-mute">{room.members}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

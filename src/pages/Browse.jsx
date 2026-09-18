@@ -1,64 +1,67 @@
 import { useMemo, useState } from 'react'
 import TitleCard from '../components/TitleCard'
-import { CATALOG, GENRES } from '../data/catalog'
+import { useCatalog } from '../lib/catalog'
 
 const TYPES = [
-  { id: 'all', label: 'Everything' },
+  { id: 'all', label: 'All' },
   { id: 'film', label: 'Films' },
   { id: 'series', label: 'Series' },
 ]
 
 const SORTS = [
-  { id: 'popular', label: 'Most popular' },
-  { id: 'rating', label: 'Highest rated' },
-  { id: 'newest', label: 'Newest first' },
+  { id: 'default', label: 'Relevance' },
+  { id: 'rating', label: 'Rating' },
+  { id: 'year', label: 'Newest' },
   { id: 'az', label: 'A–Z' },
 ]
 
 export default function Browse() {
+  const { rows, loading } = useCatalog()
   const [type, setType] = useState('all')
   const [genre, setGenre] = useState('all')
-  const [sort, setSort] = useState('popular')
+  const [sort, setSort] = useState('default')
+
+  // Flatten every row into one de-duplicated pool.
+  const pool = useMemo(() => {
+    const seen = new Map()
+    rows.forEach((row) => row.items.forEach((i) => !seen.has(i.id) && seen.set(i.id, i)))
+    return [...seen.values()]
+  }, [rows])
+
+  const genres = useMemo(() => {
+    const set = new Set()
+    pool.forEach((i) => i.genres?.forEach((g) => set.add(g)))
+    return [...set].sort()
+  }, [pool])
 
   const results = useMemo(() => {
-    let list = CATALOG.filter(
-      (t) => (type === 'all' || t.type === type) && (genre === 'all' || t.genres.includes(genre))
+    const list = pool.filter(
+      (i) =>
+        (type === 'all' || i.type === type) && (genre === 'all' || i.genres?.includes(genre))
     )
     const sorters = {
-      popular: (a, b) => b.popularity - a.popularity,
-      rating: (a, b) => b.rating - a.rating,
-      newest: (a, b) => b.year - a.year,
+      default: () => 0,
+      rating: (a, b) => (b.rating ?? 0) - (a.rating ?? 0),
+      year: (a, b) => (b.year ?? 0) - (a.year ?? 0),
       az: (a, b) => a.title.localeCompare(b.title),
     }
-    return [...list].sort(sorters[sort])
-  }, [type, genre, sort])
+    return sort === 'default' ? list : [...list].sort(sorters[sort])
+  }, [pool, type, genre, sort])
 
   return (
-    <div className="shell py-12">
-      <header className="max-w-2xl">
-        <p className="eyebrow">Catalog</p>
-        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Browse</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-mist-400">
-          {CATALOG.length} titles, filtered however you like. Add anything to your list and it
-          appears in every room you host.
-        </p>
-      </header>
+    <div className="shell py-6">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[0.07] pb-3">
+        <h1 className="text-[13px] font-semibold uppercase tracking-[0.1em]">Browse</h1>
 
-      <div className="panel mt-9 flex flex-col gap-5 p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-semibold uppercase tracking-[0.18em] text-mist-500">
-            Type
-          </span>
+        <div className="flex gap-0.5">
           {TYPES.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setType(t.id)}
               aria-pressed={type === t.id}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
-                type === t.id
-                  ? 'bg-teal-400 text-ink-950'
-                  : 'border border-white/10 bg-white/[0.04] text-mist-400 hover:text-mist-100'
+              className={`px-2 py-1 text-xs ${
+                type === t.id ? 'bg-fg text-base-900' : 'text-fg-mute hover:text-fg-dim'
               }`}
             >
               {t.label}
@@ -66,57 +69,59 @@ export default function Browse() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-5">
-          <span className="mr-1 text-xs font-semibold uppercase tracking-[0.18em] text-mist-500">
-            Genre
-          </span>
-          {['all', ...GENRES].map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setGenre(g)}
-              aria-pressed={genre === g}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
-                genre === g
-                  ? 'border border-teal-400/60 bg-teal-400/15 text-teal-300'
-                  : 'border border-white/10 bg-white/[0.04] text-mist-400 hover:text-mist-100'
-              }`}
-            >
-              {g === 'all' ? 'All genres' : g}
-            </button>
-          ))}
-        </div>
+        <label className="flex items-center gap-1.5 text-xs text-fg-mute">
+          Genre
+          <select
+            value={genre}
+            onChange={(e) => setGenre(e.target.value)}
+            className="border border-white/10 bg-base-850 px-1.5 py-1 text-xs text-fg"
+          >
+            <option value="all">All</option>
+            {genres.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06] pt-5">
-          <p className="text-sm text-mist-400">
-            <span className="font-semibold text-mist-100">{results.length}</span>{' '}
-            {results.length === 1 ? 'title' : 'titles'}
-          </p>
-          <label className="flex items-center gap-2 text-sm text-mist-400">
-            Sort by
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="rounded-full border border-white/10 bg-ink-800 px-3 py-1.5 text-sm font-medium text-mist-100"
-            >
-              {SORTS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="flex items-center gap-1.5 text-xs text-fg-mute">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="border border-white/10 bg-base-850 px-1.5 py-1 text-xs text-fg"
+          >
+            {SORTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <span className="nums ml-auto text-2xs text-fg-mute">
+          {loading ? 'loading…' : `${results.length} titles`}
+        </span>
       </div>
 
-      {results.length === 0 ? (
-        <p className="panel mt-8 p-10 text-center text-sm text-mist-400">
-          No titles match that combination yet. Try clearing the genre filter.
+      {loading ? (
+        <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-2">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <div key={i}>
+              <div className="aspect-[2/3] bg-base-800" />
+              <div className="mt-1.5 h-3 w-4/5 bg-base-800" />
+            </div>
+          ))}
+        </div>
+      ) : results.length === 0 ? (
+        <p className="mt-8 text-center text-xs text-fg-mute">
+          Nothing matches those filters.
         </p>
       ) : (
-        <div className="mt-9 flex flex-wrap gap-5">
+        <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-2">
           {results.map((item) => (
-            <TitleCard key={item.id} item={item} />
+            <TitleCard key={item.id} item={item} width="w-full" />
           ))}
         </div>
       )}

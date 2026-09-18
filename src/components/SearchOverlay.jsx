@@ -1,37 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CATALOG } from '../data/catalog'
-import Artwork from '../lib/Artwork'
-import { IconClose, IconSearch } from '../lib/icons'
+import Poster from './Poster'
+import { MetaLine } from './TitleCard'
+import { useSearch } from '../lib/catalog'
 
 export default function SearchOverlay({ open, onClose }) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef(null)
   const navigate = useNavigate()
+  const { results, loading } = useSearch(query)
 
   useEffect(() => {
-    if (open) {
-      setQuery('')
-      setActive(0)
-      const t = setTimeout(() => inputRef.current?.focus(), 30)
-      return () => clearTimeout(t)
-    }
-    return undefined
+    if (!open) return undefined
+    setQuery('')
+    setActive(0)
+    const t = setTimeout(() => inputRef.current?.focus(), 20)
+    return () => clearTimeout(t)
   }, [open])
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const pool = q
-      ? CATALOG.filter(
-          (t) =>
-            t.title.toLowerCase().includes(q) ||
-            t.genres.some((g) => g.toLowerCase().includes(q)) ||
-            t.director.toLowerCase().includes(q)
-        )
-      : [...CATALOG].sort((a, b) => b.popularity - a.popularity)
-    return pool.slice(0, 7)
-  }, [query])
+  useEffect(() => setActive(0), [results])
 
   if (!open) return null
 
@@ -54,37 +42,33 @@ export default function SearchOverlay({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center bg-ink-950/85 px-4 pt-[12vh] backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-base-900/80 px-4 pt-[10vh]"
       role="dialog"
       aria-modal="true"
       aria-label="Search the catalog"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-ink-900/95 shadow-lift">
-        <div className="flex items-center gap-3 border-b border-white/[0.07] px-5 py-4">
-          <span className="text-teal-300">
-            <IconSearch size={19} />
-          </span>
+      <div className="w-full max-w-xl border border-white/10 bg-base-850">
+        <div className="flex items-center gap-2 border-b border-white/[0.07] px-3 py-2.5">
+          <span className="text-fg-mute">⌕</span>
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setActive(0)
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search titles, genres, directors…"
-            className="w-full bg-transparent text-[15px] text-mist-100 placeholder:text-mist-500 focus:outline-none"
+            placeholder="Search films and series…"
+            className="w-full bg-transparent text-sm placeholder:text-fg-mute focus:outline-none"
           />
-          <button type="button" onClick={onClose} className="btn-quiet" aria-label="Close search">
-            <IconClose size={17} />
+          {loading && <span className="text-2xs text-fg-mute">…</span>}
+          <button type="button" onClick={onClose} className="text-fg-mute hover:text-fg" aria-label="Close search">
+            ✕
           </button>
         </div>
 
-        <ul className="max-h-[52vh] overflow-y-auto p-2">
-          {results.length === 0 && (
-            <li className="px-4 py-8 text-center text-sm text-mist-500">
-              Nothing matched “{query}”. Try a genre like Thriller or Animation.
+        <ul className="max-h-[50vh] overflow-y-auto">
+          {!loading && results.length === 0 && (
+            <li className="px-3 py-6 text-center text-xs text-fg-mute">
+              {query.trim() ? `No matches for “${query.trim()}”` : 'Type to search'}
             </li>
           )}
           {results.map((item, i) => (
@@ -93,41 +77,31 @@ export default function SearchOverlay({ open, onClose }) {
                 type="button"
                 onMouseEnter={() => setActive(i)}
                 onClick={() => go(item.id)}
-                className={`flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-left transition-colors duration-150 ${
-                  i === active ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]'
+                className={`flex w-full items-center gap-3 px-3 py-2 text-left ${
+                  i === active ? 'bg-white/[0.06]' : ''
                 }`}
               >
-                <span className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-white/10">
-                  <Artwork item={item} className="h-full w-full" />
+                <span className="h-12 w-8 shrink-0 overflow-hidden border border-white/10">
+                  <Poster item={item} sizes="32px" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-mist-100">
-                    {item.title}
-                  </span>
-                  <span className="block truncate text-xs text-mist-500">
-                    {item.type === 'series' ? 'Series' : 'Film'} · {item.year} ·{' '}
-                    {item.genres.join(', ')}
-                  </span>
+                  <span className="block truncate text-[13px]">{item.title}</span>
+                  <MetaLine item={item} className="block" />
                 </span>
-                <span className="shrink-0 text-xs font-semibold text-amber-300">
-                  {item.rating.toFixed(1)}
-                </span>
+                {typeof item.rating === 'number' && item.rating > 0 && (
+                  <span className="nums shrink-0 text-2xs text-fg-dim">
+                    {item.rating.toFixed(1)}
+                  </span>
+                )}
               </button>
             </li>
           ))}
         </ul>
 
-        <div className="flex items-center gap-4 border-t border-white/[0.07] px-5 py-3 text-[11px] text-mist-500">
-          <span>
-            <kbd className="rounded border border-white/15 px-1.5 py-0.5">↑</kbd>{' '}
-            <kbd className="rounded border border-white/15 px-1.5 py-0.5">↓</kbd> navigate
-          </span>
-          <span>
-            <kbd className="rounded border border-white/15 px-1.5 py-0.5">↵</kbd> open
-          </span>
-          <span>
-            <kbd className="rounded border border-white/15 px-1.5 py-0.5">esc</kbd> dismiss
-          </span>
+        <div className="flex gap-3 border-t border-white/[0.07] px-3 py-1.5 text-2xs text-fg-mute">
+          <span>↑↓ move</span>
+          <span>↵ open</span>
+          <span>esc close</span>
         </div>
       </div>
     </div>

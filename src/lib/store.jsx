@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { CONTINUE_WATCHING } from '../data/catalog'
 
 const KEY = 'syncroom:v1'
 const StoreContext = createContext(null)
@@ -19,13 +18,7 @@ function load() {
 export function StoreProvider({ children }) {
   const [state, setState] = useState(() => {
     if (typeof window === 'undefined') return { watchlist: [], progress: {} }
-    const stored = load()
-    if (!Object.keys(stored.progress).length) {
-      stored.progress = Object.fromEntries(
-        CONTINUE_WATCHING.map((c) => [c.id, { value: c.progress, label: c.label }])
-      )
-    }
-    return stored
+    return load()
   })
 
   useEffect(() => {

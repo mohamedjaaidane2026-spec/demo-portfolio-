@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import Artwork from '../lib/Artwork'
-import { CHAT_SEED, getTitle } from '../data/catalog'
-import { IconArrow, IconPlay, IconSend, IconUsers } from '../lib/icons'
+import { useTitle } from '../lib/catalog'
 import { useStore } from '../lib/store'
 
 const MEMBERS = [
-  { name: 'Mohamed', role: 'you', hue: 'bg-teal-400' },
-  { name: 'Nadia', role: 'host', hue: 'bg-amber-400' },
-  { name: 'Owen', role: 'watching', hue: 'bg-indigo-400' },
-  { name: 'Priya', role: 'watching', hue: 'bg-rose-400' },
+  { name: 'You', tone: 'bg-accent' },
+  { name: 'Nadia', tone: 'bg-base-600' },
+  { name: 'Owen', tone: 'bg-base-600' },
+  { name: 'Priya', tone: 'bg-base-600' },
+]
+
+const SEED = [
+  { id: 1, user: 'Nadia', at: '00:04', body: 'opening shot was worth the wait' },
+  { id: 2, user: 'Owen', at: '00:07', body: 'buffering for anyone else?' },
+  { id: 3, user: 'Priya', at: '00:07', body: 'resynced you, try now' },
+  { id: 4, user: 'Nadia', at: '00:12', body: 'no spoilers marek' },
 ]
 
 function clock(seconds) {
@@ -23,39 +28,53 @@ function clock(seconds) {
 
 export default function Watch() {
   const { id } = useParams()
-  const item = getTitle(id)
+  const { item, loading } = useTitle(id)
   const { progress, setProgress } = useStore()
-  const total = (item?.runtime ?? 100) * 60
 
+  const total = (item?.runtime || 100) * 60
   const [playing, setPlaying] = useState(true)
-  const [t, setT] = useState(() => Math.round((progress[id]?.value ?? 0) * total))
-  const [messages, setMessages] = useState(CHAT_SEED)
+  const [t, setT] = useState(0)
+  const [messages, setMessages] = useState(SEED)
   const [draft, setDraft] = useState('')
   const chatEnd = useRef(null)
+  const seeded = useRef(false)
+
+  // Seed the playhead from stored progress once the title resolves.
+  useEffect(() => {
+    if (!item || seeded.current) return
+    seeded.current = true
+    const stored = progress[item.id]?.value
+    if (stored) setT(Math.round(stored * total))
+  }, [item, progress, total])
 
   useEffect(() => {
-    if (!playing) return undefined
+    if (!playing || !item) return undefined
     const timer = setInterval(() => setT((v) => Math.min(v + 1, total)), 1000)
     return () => clearInterval(timer)
-  }, [playing, total])
+  }, [playing, total, item])
 
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ block: 'nearest' })
   }, [messages])
 
   useEffect(() => {
-    if (!item) return
-    const timer = setTimeout(() => setProgress(item.id, t / total, `${Math.floor(t / 60)} min in`), 500)
+    if (!item || !t) return undefined
+    const timer = setTimeout(
+      () => setProgress(item.id, t / total, `${Math.floor(t / 60)} min in`),
+      600
+    )
     return () => clearTimeout(timer)
   }, [t, total, item, setProgress])
 
-  const pct = useMemo(() => (t / total) * 100, [t, total])
+  const pct = useMemo(() => (total ? (t / total) * 100 : 0), [t, total])
+
+  if (loading) return <div className="shell py-10 text-xs text-fg-mute">Loading…</div>
 
   if (!item) {
     return (
-      <div className="shell py-24 text-center">
-        <h1 className="font-display text-3xl font-bold">That room has closed</h1>
-        <Link to="/browse" className="btn-primary mt-7">
+      <div className="shell py-16 text-center">
+        <p className="text-sm">That room has closed.</p>
+        <Link to="/browse" className="btn-ghost mt-4">
           Find something to watch
         </Link>
       </div>
@@ -66,164 +85,138 @@ export default function Watch() {
     e.preventDefault()
     const body = draft.trim()
     if (!body) return
-    setMessages((m) => [...m, { id: Date.now(), user: 'Mohamed', at: clock(t), body, own: true }])
+    setMessages((m) => [...m, { id: Date.now(), user: 'You', at: clock(t), body, own: true }])
     setDraft('')
   }
 
   return (
-    <div className="shell py-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          to={`/title/${item.id}`}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-mist-400 hover:text-teal-300"
-        >
-          <span className="rotate-180">
-            <IconArrow size={15} />
-          </span>
-          Back to details
+    <div className="shell py-4">
+      <div className="flex items-center gap-3 text-xs">
+        <Link to={`/title/${item.id}`} className="text-fg-mute hover:text-fg">
+          ‹ Details
         </Link>
-        <span className="chip ml-auto text-teal-300">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse-soft rounded-full bg-teal-400" />
+        <span className="ml-auto flex items-center gap-1.5 text-fg-dim">
+          <span className="h-1.5 w-1.5 bg-accent" />
           In sync
         </span>
-        <span className="chip">
-          <IconUsers size={13} />
-          {MEMBERS.length} watching
-        </span>
+        <span className="nums text-fg-mute">{MEMBERS.length} watching</span>
       </div>
 
-      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div>
-          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-ink-900 shadow-lift">
+          <div className="relative border border-white/[0.07] bg-black">
             <div className="relative aspect-video">
-              <Artwork item={item} variant="wide" className="h-full w-full opacity-80" />
-              <div className="absolute inset-0 bg-ink-950/35" />
+              {item.backdrop ? (
+                <img
+                  src={item.backdrop}
+                  alt=""
+                  className="h-full w-full object-cover opacity-60"
+                />
+              ) : (
+                <div className="h-full w-full bg-base-850" />
+              )}
 
               {!playing && (
                 <button
                   type="button"
                   onClick={() => setPlaying(true)}
-                  className="absolute inset-0 flex items-center justify-center bg-ink-950/45"
+                  className="absolute inset-0 grid place-items-center bg-base-900/40"
                   aria-label="Resume playback"
                 >
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-400 text-ink-950 shadow-glow">
-                    <IconPlay size={24} />
-                  </span>
+                  <span className="grid h-12 w-12 place-items-center bg-accent text-white">▶</span>
                 </button>
               )}
+            </div>
 
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950 to-transparent p-5 pt-16">
-                <p className="font-display text-xl font-semibold">{item.title}</p>
-                <p className="text-xs text-mist-400">
-                  {item.year} · {item.genres.join(' / ')} · hosted by Nadia
-                </p>
+            <div className="border-t border-white/[0.07] bg-base-850 px-2.5 py-2">
+              <label className="sr-only" htmlFor="scrub">
+                Playback position
+              </label>
+              <input
+                id="scrub"
+                type="range"
+                min={0}
+                max={total}
+                value={t}
+                onChange={(e) => setT(Number(e.target.value))}
+                className="h-1 w-full cursor-pointer appearance-none"
+                style={{
+                  background: `linear-gradient(to right, #d83a45 ${pct}%, rgba(255,255,255,0.14) ${pct}%)`,
+                }}
+              />
 
-                <label className="sr-only" htmlFor="scrub">
-                  Playback position
-                </label>
-                <input
-                  id="scrub"
-                  type="range"
-                  min={0}
-                  max={total}
-                  value={t}
-                  onChange={(e) => setT(Number(e.target.value))}
-                  className="mt-4 h-1.5 w-full cursor-pointer appearance-none rounded-full accent-teal-400"
-                  style={{
-                    background: `linear-gradient(to right, #38cfba ${pct}%, rgba(255,255,255,0.15) ${pct}%)`,
-                  }}
-                />
-
-                <div className="mt-3 flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setPlaying((v) => !v)}
-                    className="btn-primary h-10 w-10 p-0"
-                    aria-label={playing ? 'Pause' : 'Play'}
-                  >
-                    {playing ? (
-                      <span className="flex gap-[3px]">
-                        <span className="block h-3.5 w-[3px] rounded-sm bg-ink-950" />
-                        <span className="block h-3.5 w-[3px] rounded-sm bg-ink-950" />
-                      </span>
-                    ) : (
-                      <IconPlay size={16} />
-                    )}
-                  </button>
-                  <span className="font-mono text-xs text-mist-300">
-                    {clock(t)} <span className="text-mist-500">/ {clock(total)}</span>
-                  </span>
-                  <span className="ml-auto flex -space-x-2">
-                    {MEMBERS.map((m) => (
-                      <span
-                        key={m.name}
-                        title={`${m.name} · ${m.role}`}
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink-950 text-[11px] font-bold text-ink-950 ${m.hue}`}
-                      >
-                        {m.name[0]}
-                      </span>
-                    ))}
-                  </span>
-                </div>
+              <div className="mt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPlaying((v) => !v)}
+                  className="btn-icon"
+                  aria-label={playing ? 'Pause' : 'Play'}
+                >
+                  {playing ? '❚❚' : '▶'}
+                </button>
+                <span className="nums text-2xs text-fg-dim">
+                  {clock(t)} <span className="text-fg-mute">/ {clock(total)}</span>
+                </span>
+                <span className="truncate text-2xs text-fg-mute">{item.title}</span>
+                <span className="ml-auto flex gap-1">
+                  {MEMBERS.map((m) => (
+                    <span
+                      key={m.name}
+                      title={m.name}
+                      className={`h-5 w-5 text-center text-2xs leading-5 text-white ${m.tone}`}
+                    >
+                      {m.name[0]}
+                    </span>
+                  ))}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="panel mt-5 p-5">
-            <p className="eyebrow">Room settings</p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {[
-                { k: 'Playback', v: 'Host-controlled' },
-                { k: 'Latency', v: '42 ms drift' },
-                { k: 'Quality', v: '1080p · auto' },
-              ].map((row) => (
-                <div key={row.k} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-mist-500">{row.k}</p>
-                  <p className="mt-1.5 font-semibold text-mist-100">{row.v}</p>
-                </div>
-              ))}
-            </div>
+          <div className="card mt-3 grid grid-cols-3 divide-x divide-white/[0.06]">
+            {[
+              ['Playback', 'Host-controlled'],
+              ['Drift', '42 ms'],
+              ['Quality', '1080p auto'],
+            ].map(([k, v]) => (
+              <div key={k} className="px-3 py-2">
+                <p className="label">{k}</p>
+                <p className="mt-0.5 text-xs text-fg-dim">{v}</p>
+              </div>
+            ))}
           </div>
         </div>
 
-        <aside className="panel flex h-[600px] flex-col overflow-hidden lg:h-auto">
-          <div className="border-b border-white/[0.07] px-5 py-4">
-            <p className="font-display text-lg font-semibold">Room chat</p>
-            <p className="text-xs text-mist-500">Timestamps follow the host’s playhead</p>
+        <aside className="card flex h-[460px] flex-col lg:h-auto">
+          <div className="border-b border-white/[0.07] px-2.5 py-2">
+            <p className="text-[13px] font-semibold">Chat</p>
           </div>
 
-          <ul className="flex-1 space-y-3.5 overflow-y-auto px-5 py-4">
+          <ul className="flex-1 space-y-2.5 overflow-y-auto px-2.5 py-2">
             {messages.map((m) => (
-              <li key={m.id} className="text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className={`font-semibold ${m.own ? 'text-teal-300' : 'text-mist-100'}`}
-                  >
+              <li key={m.id} className="text-xs">
+                <span className="flex items-baseline gap-1.5">
+                  <span className={m.own ? 'font-medium text-accent' : 'font-medium text-fg-dim'}>
                     {m.user}
                   </span>
-                  <span className="font-mono text-[10px] text-mist-500">{m.at}</span>
-                </div>
-                <p className="mt-0.5 leading-relaxed text-mist-300">{m.body}</p>
+                  <span className="nums text-2xs text-fg-mute">{m.at}</span>
+                </span>
+                <p className="mt-0.5 leading-relaxed text-fg-dim">{m.body}</p>
               </li>
             ))}
             <li ref={chatEnd} />
           </ul>
 
-          <form onSubmit={send} className="flex items-center gap-2 border-t border-white/[0.07] p-3">
+          <form onSubmit={send} className="flex gap-1.5 border-t border-white/[0.07] p-2">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Say something…"
+              placeholder="Message…"
               aria-label="Chat message"
-              className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-mist-100 placeholder:text-mist-500 focus:border-teal-400/50 focus:outline-none"
+              className="min-w-0 flex-1 border border-white/10 bg-base-800 px-2 py-1.5 text-xs placeholder:text-fg-mute focus:border-white/25 focus:outline-none"
             />
-            <button
-              type="submit"
-              disabled={!draft.trim()}
-              className="btn-primary h-10 w-10 shrink-0 p-0"
-              aria-label="Send message"
-            >
-              <IconSend size={16} />
+            <button type="submit" disabled={!draft.trim()} className="btn-primary px-2.5 py-1.5">
+              Send
             </button>
           </form>
         </aside>
