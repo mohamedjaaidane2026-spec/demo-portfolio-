@@ -1,25 +1,82 @@
-:root {
-  --bg: #0f172a;
-  --surface: #17213b;
-  --border: #29354f;
-  --text: #eef2f9;
-  --muted: #9dabc4;
-  --accent: #4f8ef7;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color-scheme: dark;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ink-950 text-mist-100 antialiased;
+    background-image:
+      radial-gradient(1100px 620px at 88% -8%, rgba(23, 182, 160, 0.14), transparent 60%),
+      radial-gradient(900px 520px at 4% 0%, rgba(61, 75, 110, 0.32), transparent 62%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-teal-400/30 text-mist-100;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-teal-400/70 ring-offset-2 ring-offset-ink-950;
+  }
 }
 
-* {
-  box-sizing: border-box;
+@layer components {
+  .shell {
+    @apply mx-auto w-full max-w-[1400px] px-5 sm:px-8 lg:px-12;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-300;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-white/[0.07] bg-ink-850/70 backdrop-blur;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors duration-200 disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-teal-400 px-5 py-2.5 text-ink-950 hover:bg-teal-300;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/[0.12] bg-white/[0.04] px-5 py-2.5 text-mist-100 hover:border-white/25 hover:bg-white/[0.09];
+  }
+
+  .btn-quiet {
+    @apply btn px-3 py-2 text-mist-400 hover:text-mist-100;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-mist-400;
+  }
+
+  .rail-scroll {
+    @apply flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3;
+    scrollbar-width: none;
+  }
+
+  .rail-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-}
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 
-a {
-  color: var(--accent);
+  .mask-fade-r {
+    mask-image: linear-gradient(to right, black 88%, transparent 100%);
+  }
 }
