@@ -81,7 +81,7 @@ export default function Layout({ children }) {
                 to={item.to}
                 end={item.to === '/'}
                 className={({ isActive }) =>
-                  `relative rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-200 ${
+                  `relative whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-200 ${
                     isActive ? 'text-mist-100' : 'text-mist-400 hover:text-mist-100'
                   }`
                 }
@@ -107,7 +107,7 @@ export default function Layout({ children }) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="group hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-2 pl-3 pr-2.5 text-sm text-mist-400 transition-colors duration-200 hover:border-white/25 hover:text-mist-100 sm:flex"
+              className="group hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-2 pl-3 pr-2.5 text-sm text-mist-400 transition-colors duration-200 hover:border-white/25 hover:text-mist-100 lg:flex"
             >
               <IconSearch size={16} />
               <span className="pr-8">Search</span>
@@ -119,12 +119,12 @@ export default function Layout({ children }) {
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className="btn-quiet sm:hidden"
+              className="btn-quiet lg:hidden"
             >
               <IconSearch size={18} />
             </button>
 
-            <Link to="/rooms" className="btn-primary hidden sm:inline-flex">
+            <Link to="/rooms" className="btn-primary hidden lg:inline-flex">
               <IconUsers size={16} />
               Start a room
             </Link>
